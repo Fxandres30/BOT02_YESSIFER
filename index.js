@@ -18,7 +18,7 @@ import { procesarEntrada } from "./functions/entrada.js";
 import { GRUPOS_PERMITIDOS } from "./functions/grupos.js";
 import { escanearGrupos } from "./functions/scannerGrupos.js";
 
-console.log("🚀 BOT - 1.0.1 - Y - INICIANDO...");
+console.log("🚀 BOT - 1.0.2 - Y - INICIANDO...");
 
 let sock;
 let starting = false;

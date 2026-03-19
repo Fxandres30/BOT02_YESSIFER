@@ -2,7 +2,6 @@ import { getContentType } from "@whiskeysockets/baileys";
 import { procesarReserva } from "./reservas.js";
 import { procesarPago } from "./pagos.js";
 
-
 // 🔥 escribir con delay
 async function enviarConEscribiendo(sock, jid, texto, quoted) {
   try {
@@ -79,62 +78,12 @@ export async function procesarEntrada(sock, msg, configGrupo, jidUsuario) {
 
   console.log("🗣️ TEXTO FINAL:", texto);
 
-  // 🔥 CONSULTA DE NÚMEROS
-  if (esConsultaNumeros(texto)) {
-
-    try {
-
-      const numeros = await obtenerNumerosUsuario(
-        jidUsuario, // 🔥 SIEMPRE JID REAL
-        configGrupo.tabla
-      );
-
-      if (!numeros.length) {
-
-        const respuesta = respuestaSinNumeros(texto);
-
-        await enviarConEscribiendo(
-          sock,
-          msg.key.remoteJid,
-          respuesta,
-          msg
-        );
-
-        return;
-      }
-
-      const respuesta = respuestaAleatoriaNumeros(
-        numeros,
-        texto
-      );
-
-      await enviarConEscribiendo(
-        sock,
-        msg.key.remoteJid,
-        respuesta,
-        msg
-      );
-
-    } catch (err) {
-      console.log("❌ Error consultando números:", err);
-
-      await enviarConEscribiendo(
-        sock,
-        msg.key.remoteJid,
-        "❌ Error consultando tus números, intenta de nuevo.",
-        msg
-      );
-    }
-
-    return;
-  }
-
   // 👉 RESERVAS
   await procesarReserva(
     sock,
     msg,
     texto,
     configGrupo,
-    jidUsuario // 🔥 MISMO DATO PARA TODO
+    jidUsuario
   );
 }
