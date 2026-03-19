@@ -3,27 +3,29 @@ export const NUMERO_ADMIN = "573113611819@s.whatsapp.net";
 // config.js
 
 export const ADMINS = [
-  "573104538811@s.whatsapp.net",
-  "277807678648498@s.whatsapp.net",
-  "238139427803209@s.whatsapp.net",
-  "573001582621@s.whatsapp.net",
-  "277601553768603@s.whatsapp.net",
-  "238139427803209@s.whatsapp.net",
-  "126156728746068@s.whatsapp.net",
-  "38092752871673@s.whatsapp.net",
-  "153391183429643@s.whatsapp.net",
-  "115226036977715@s.whatsapp.net",
-  "277807678648498@s.whatsapp.net",
-  "56793040433232@s.whatsapp.net",
-  "211669544337445@s.whatsapp.net",
-  "117270458151022@s.whatsapp.net",
-  "277601553768603@s.whatsapp.net",
-  "117270458151022@s.whatsapp.net",
-  "277421265813751@s.whatsapp.net"
+  "573104538811",
+  "277807678648498",
+  "238139427803209",
+  "573001582621",
+  "277601553768603",
+  "126156728746068",
+  "38092752871673",
+  "153391183429643",
+  "115226036977715",
+  "56793040433232",
+  "211669544337445",
+  "117270458151022",
+  "277421265813751"
 ];
 
-export const STICKER_PAGO_ID =
-  "T9gVHBVeWDiTlhsDL0tr3Xjbu0bUzAlP1VjSHjf5rKg=";
+export const STICKER_PAGO_ID =  [
+  "T9gVHBVeWDiTlhsDL0tr3Xjbu0bUzAlP1VjSHjf5rKg=",
+  "Ztbr/xggfN4hQot5ZA1Fl24SwoLW7Woz74EACZMoUSQ=",
+  "nnq3+j4zrFsOybkKlyU1oVL/UAN0CRiLJ7K4AG9Uftk="
+  ];
 
-export const NUMERO_NOTIFICACION =
-  "573113611819@s.whatsapp.net";
+export const NUMERO_NOTIFICACION = [
+  "573014123951@s.whatsapp.net",
+  "573113611819@s.whatsapp.net",
+  "573001582621@s.whatsapp.net" // 👈 agrega aquí
+];

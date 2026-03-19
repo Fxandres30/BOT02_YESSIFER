@@ -2,13 +2,6 @@ import { getContentType } from "@whiskeysockets/baileys";
 import { procesarReserva } from "./reservas.js";
 import { procesarPago } from "./pagos.js";
 
-import {
-  esConsultaNumeros,
-  respuestaAleatoriaNumeros,
-  respuestaSinNumeros
-} from "./consultasNumeros.js";
-
-import { obtenerNumerosUsuario } from "./consultarNumerosBD.js";
 
 // 🔥 escribir con delay
 async function enviarConEscribiendo(sock, jid, texto, quoted) {
