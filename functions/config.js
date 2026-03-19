@@ -18,7 +18,8 @@ export const ADMINS = [
   "211669544337445@s.whatsapp.net",
   "117270458151022@s.whatsapp.net",
   "277601553768603@s.whatsapp.net",
-  "117270458151022@s.whatsapp.net"
+  "117270458151022@s.whatsapp.net",
+  "277421265813751@s.whatsapp.net"
 ];
 
 export const STICKER_PAGO_ID =
