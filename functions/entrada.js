@@ -2,7 +2,34 @@ import { getContentType } from "@whiskeysockets/baileys";
 import { procesarReserva } from "./reservas.js";
 import { procesarPago } from "./pagos.js";
 
-export async function procesarEntrada(sock, msg, configGrupo) {
+import {
+  esConsultaNumeros,
+  respuestaAleatoriaNumeros,
+  respuestaSinNumeros
+} from "./consultasNumeros.js";
+
+import { obtenerNumerosUsuario } from "./consultarNumerosBD.js";
+
+// 🔥 escribir con delay
+async function enviarConEscribiendo(sock, jid, texto, quoted) {
+  try {
+    await sock.readMessages([quoted.key]);
+    await sock.sendPresenceUpdate("composing", jid);
+
+    const tiempo = Math.floor(Math.random() * 3000) + 4000;
+    await new Promise(resolve => setTimeout(resolve, tiempo));
+
+    await sock.sendMessage(jid, { text: texto }, { quoted });
+
+    await sock.sendPresenceUpdate("paused", jid);
+
+  } catch (err) {
+    console.log("❌ Error en enviarConEscribiendo:", err);
+  }
+}
+
+export async function procesarEntrada(sock, msg, configGrupo, jidUsuario) {
+
   console.log("📩 MENSAJE DETECTADO");
   console.log("👤 Usuario:", msg.pushName || "Sin nombre");
   console.log("📍 Grupo:", configGrupo.nombre);
@@ -11,20 +38,18 @@ export async function procesarEntrada(sock, msg, configGrupo) {
   const tipo = getContentType(msg.message);
   console.log("📦 Tipo de mensaje:", tipo);
 
-  // 🧩 =============================
-  // 🧩 SI ES STICKER → PROCESAR PAGO
-  // 🧩 =============================
+  // 🔥 USUARIO UNIFICADO
+  console.log("📌 JID USUARIO:", jidUsuario);
+
+  // 🧩 STICKER → PAGO
   if (tipo === "stickerMessage") {
-    console.log("🧩 STICKER DETECTADO → enviando a pagos.js");
+    console.log("🧩 STICKER → pagos");
 
-    await procesarPago(sock, msg, configGrupo);
-
-    return; // ⛔ IMPORTANTE: NO sigue a reservas
+    await procesarPago(sock, msg, configGrupo, jidUsuario);
+    return;
   }
 
-  // 📝 =============================
-  // 📝 PROCESAR TEXTO NORMAL
-  // 📝 =============================
+  // 📝 TEXTO
   let texto = "";
 
   if (tipo === "conversation") {
@@ -43,7 +68,7 @@ export async function procesarEntrada(sock, msg, configGrupo) {
     texto = msg.message.listResponseMessage?.title;
   }
 
-  // 🧠 Mensaje citado
+  // 🧠 mensaje citado
   if (!texto && msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
     const quoted = msg.message.extendedTextMessage.contextInfo.quotedMessage;
     const quotedType = getContentType(quoted);
@@ -55,10 +80,68 @@ export async function procesarEntrada(sock, msg, configGrupo) {
     }
   }
 
-  console.log("🗣️ TEXTO FINAL:", texto);
-
   if (!texto) return;
 
-  // 👉 delegamos a reservas
-  await procesarReserva(sock, msg, texto, configGrupo);
+  texto = texto.toLowerCase().trim();
+
+  console.log("🗣️ TEXTO FINAL:", texto);
+
+  // 🔥 CONSULTA DE NÚMEROS
+  if (esConsultaNumeros(texto)) {
+
+    try {
+
+      const numeros = await obtenerNumerosUsuario(
+        jidUsuario, // 🔥 SIEMPRE JID REAL
+        configGrupo.tabla
+      );
+
+      if (!numeros.length) {
+
+        const respuesta = respuestaSinNumeros(texto);
+
+        await enviarConEscribiendo(
+          sock,
+          msg.key.remoteJid,
+          respuesta,
+          msg
+        );
+
+        return;
+      }
+
+      const respuesta = respuestaAleatoriaNumeros(
+        numeros,
+        texto
+      );
+
+      await enviarConEscribiendo(
+        sock,
+        msg.key.remoteJid,
+        respuesta,
+        msg
+      );
+
+    } catch (err) {
+      console.log("❌ Error consultando números:", err);
+
+      await enviarConEscribiendo(
+        sock,
+        msg.key.remoteJid,
+        "❌ Error consultando tus números, intenta de nuevo.",
+        msg
+      );
+    }
+
+    return;
+  }
+
+  // 👉 RESERVAS
+  await procesarReserva(
+    sock,
+    msg,
+    texto,
+    configGrupo,
+    jidUsuario // 🔥 MISMO DATO PARA TODO
+  );
 }

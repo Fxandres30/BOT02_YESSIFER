@@ -1,5 +1,3 @@
-// reservas.js
-
 import { supabase } from "./supabase.js";
 import { NUMERO_ADMIN } from "./config.js";
 import { textoPermitidoParaReserva } from "./reglasReserva.js";
@@ -10,14 +8,7 @@ import {
 } from "./mensajes.js";
 import { delayEscritura } from "./typing.js";
 
-function limpiarContacto(jid = "") {
-  return jid
-    .replace("@s.whatsapp.net", "")
-    .replace("@lid", "")
-    .replace(/^57/, "");
-}
-
-// 🔢 Extraer números de 2 cifras
+/* extraer números */
 function extraerNumeros(texto) {
   return texto
     .toLowerCase()
@@ -27,185 +18,179 @@ function extraerNumeros(texto) {
     .match(/\b\d{2}\b/g) || [];
 }
 
+/* responder */
 async function responder(sock, jid, texto, msg, delay = 1500) {
   await delayEscritura(sock, jid, delay);
-  await sock.sendMessage(
-    jid,
-    { text: texto },
-    { quoted: msg }
-  );
+  await sock.sendMessage(jid, { text: texto }, { quoted: msg });
 }
 
-export async function procesarReserva(sock, msg, texto, configGrupo) {
+/* 🔥 OBTENER USUARIO DESDE JID */
+async function obtenerUsuario(jidUsuario) {
 
-  // 🚫 BLOQUEAR MENSAJES CON MULTIMEDIA
-if (
-  msg.message?.imageMessage ||
-  msg.message?.videoMessage ||
-  msg.message?.stickerMessage ||
-  msg.message?.documentMessage ||
-  msg.message?.audioMessage
-) {
-  console.log("🚫 Mensaje con multimedia detectado. Proceso cancelado.");
-  return;
-}
+  let telefono = null;
+  let lid = null;
 
-  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("📥 NUEVA RESERVA DETECTADA");
-  console.log("📝 Texto recibido:", texto);
-
-  if (!textoPermitidoParaReserva(texto)) {
-    console.log("⛔ Texto NO permitido para reserva");
-    return;
+  if (jidUsuario.includes("@s.whatsapp.net")) {
+    telefono = jidUsuario.replace("@s.whatsapp.net", "").replace(/^57/, "");
   }
+
+  if (jidUsuario.includes("@lid")) {
+    lid = jidUsuario;
+  }
+
+  let telefonoFinal = telefono;
+  let lidFinal = lid;
+
+  // buscar lid
+  if (telefonoFinal) {
+    const { data } = await supabase
+      .from("usuarios")
+      .select("lid")
+      .eq("telefono", telefonoFinal)
+      .limit(1);
+
+    if (data?.length) lidFinal = data[0].lid;
+  }
+
+  // buscar telefono
+  if (!telefonoFinal && lidFinal) {
+    const { data } = await supabase
+      .from("usuarios")
+      .select("telefono")
+      .eq("lid", lidFinal)
+      .limit(1);
+
+    if (data?.length) telefonoFinal = data[0].telefono;
+  }
+
+  return { telefonoFinal, lidFinal };
+}
+
+/* PROCESAR RESERVA */
+export async function procesarReserva(sock, msg, texto, configGrupo, jidUsuario) {
+
+  if (!textoPermitidoParaReserva(texto)) return;
+
+  if (
+    msg.message?.imageMessage ||
+    msg.message?.videoMessage ||
+    msg.message?.stickerMessage ||
+    msg.message?.documentMessage ||
+    msg.message?.audioMessage
+  ) return;
 
   const numeros = extraerNumeros(texto);
-
-  console.log("🔢 Números extraídos:", numeros);
-
-  if (numeros.length === 0) {
-    console.log("⚠️ No se detectaron números válidos");
-    return;
-  }
+  if (numeros.length === 0) return;
 
   const { tabla, nombre: nombreGrupo } = configGrupo;
   const grupoId = msg.key.remoteJid;
-  const contactoRaw = msg.key.participant || msg.key.remoteJid;
-const contacto = limpiarContacto(contactoRaw);
+
+  // 🔥 USUARIO DESDE JID
+  const { telefonoFinal, lidFinal } = await obtenerUsuario(jidUsuario);
+
+  if (!telefonoFinal) {
+    console.log("⚠️ Usuario sin teléfono:", jidUsuario);
+    return;
+  }
+
   const nombre = msg.pushName || "Sin nombre";
 
   console.log("👤 Usuario:", nombre);
-  console.log("📞 Contacto:", contacto);
-  console.log("📍 Grupo:", nombreGrupo);
-  console.log("🗄️ Tabla:", tabla);
+  console.log("📞 Teléfono:", telefonoFinal);
+  console.log("🆔 LID:", lidFinal);
 
-  // 📦 Consultar BD
   const { data, error } = await supabase
     .from(tabla)
     .select("numero, estado, contacto")
     .in("numero", numeros);
 
-  if (error) {
-    console.error("❌ Error Supabase:", error);
-    return;
-  }
-
-  console.log("📦 Datos BD:", data);
+  if (error) return;
 
   const ocupadosPorOtros = data
-    .filter(n => n.estado !== "libre" && n.contacto !== contacto)
+    .filter(n => n.estado !== "libre" && n.contacto !== telefonoFinal)
     .map(n => n.numero);
 
   const yaSonMios = data
-    .filter(n => n.contacto === contacto)
+    .filter(n => n.contacto === telefonoFinal)
     .map(n => n.numero);
 
   const disponibles = numeros.filter(
     n => !ocupadosPorOtros.includes(n) && !yaSonMios.includes(n)
   );
 
-  console.log("📊 ESTADO DE NÚMEROS:");
-  console.log("🟥 Ocupados por otros:", ocupadosPorOtros);
-  console.log("🟨 Ya son míos:", yaSonMios);
-  console.log("🟩 Disponibles:", disponibles);
+  if (
+    disponibles.length === 0 &&
+    ocupadosPorOtros.length === 0 &&
+    yaSonMios.length === numeros.length
+  ) return;
 
-  // 🚫 CASO: TODOS YA SON DEL MISMO USUARIO (NO RESPONDER)
-if (
-  disponibles.length === 0 &&
-  ocupadosPorOtros.length === 0 &&
-  yaSonMios.length === numeros.length
-) {
-  console.log("🔵 Todos los números ya pertenecen al usuario. No se responde.");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  return;
-}
-
-  // 🔴 CASO 2: TODOS OCUPADOS
   if (ocupadosPorOtros.length === numeros.length) {
-    console.log("🔴 CASO: TODOS OCUPADOS");
 
-  await responder(
-  sock,
-  grupoId,
-  mensajeAleatorio(mensajesTodosOcupados),
-  msg
-);
-return;
+    await responder(
+      sock,
+      grupoId,
+      mensajeAleatorio(mensajesTodosOcupados),
+      msg
+    );
 
+    return;
   }
 
-  // 💾 Reservar SOLO disponibles
   const reservados = [];
 
   for (const numero of disponibles) {
-    console.log(`⏳ Intentando reservar número ${numero}...`);
 
-    const { data: updateData, error: updateError } = await supabase
-  .from(tabla)
-  .update({
-    estado: "reservado",
-    comprador: nombre,
-    contacto
-  })
-  .eq("numero", numero)
-  .eq("estado", "libre")
-  .select("numero"); // 🔥 CLAVE
+    const { data: updateData } = await supabase
+      .from(tabla)
+      .update({
+        estado: "reservado",
+        comprador: nombre,
+        contacto: telefonoFinal,
+        lib: lidFinal
+      })
+      .eq("numero", numero)
+      .eq("estado", "libre")
+      .select("numero");
 
-if (updateError) {
-  console.log(`❌ Error al reservar ${numero}`);
-} else if (updateData.length === 1) {
-  console.log(`✅ Número reservado correctamente: ${numero}`);
-  reservados.push(numero);
-} else {
-  console.log(`⚠️ Número ${numero} ya no estaba libre`);
-}
+    if (updateData?.length === 1) {
+      reservados.push(numero);
+    }
   }
 
-  console.log("📌 Números finalmente reservados:", reservados);
-
-  // 🟢 CASO 1: TODOS LIBRES
   if (ocupadosPorOtros.length === 0) {
-    console.log("🟢 CASO: TODOS LIBRES");
 
     await responder(
-  sock,
-  grupoId,
-  mensajeAleatorio(mensajesTodosLibres),
-  msg
-);
-  }
-  // 🟡 CASO 3: MEZCLADOS
-  else {
-    console.log("🟡 CASO: MEZCLADOS");
-    
+      sock,
+      grupoId,
+      mensajeAleatorio(mensajesTodosLibres),
+      msg
+    );
+
+  } else {
+
     let respuesta = "";
 
     if (reservados.length > 0) {
-      respuesta += `✅ 𝐍ú𝐦𝐞𝐫𝐨𝐬 𝐫𝐞𝐬𝐞𝐫𝐯𝐚𝐝𝐨𝐬: *( ${reservados.join(" - ")} )*\n`;
+      respuesta += `✅ Números reservados: *( ${reservados.join(" - ")} )*\n`;
     }
 
     if (ocupadosPorOtros.length > 0) {
-      respuesta += `❌ 𝐍𝐨 𝐝𝐢𝐬𝐩𝐨𝐧𝐢𝐛𝐥𝐞𝐬: *( ${ocupadosPorOtros.join(" - ")} )*`;
+      respuesta += `❌ No disponibles: *( ${ocupadosPorOtros.join(" - ")} )*`;
     }
+
     await responder(sock, grupoId, respuesta, msg);
-  
   }
 
-  // 📲 Mensaje privado al admin
   if (reservados.length > 0) {
-    console.log("📨 Enviando aviso al ADMIN");
 
     await sock.sendMessage(NUMERO_ADMIN, {
-      text: `📥 *Reserva confirmada*
+      text: `📥 Reserva confirmada
 
 👤 Usuario: ${nombre}
-📞 Número: ${contacto.split("@")[0]}
+📞 Teléfono: ${telefonoFinal}
+🆔 LID: ${lidFinal}
 📍 Grupo: ${nombreGrupo}
-🗄️ Tabla: ${tabla}
 🔢 Números: ${reservados.join(", ")}`
     });
   }
-
-  console.log("✅ FIN DEL PROCESO");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 }

@@ -1,14 +1,55 @@
 import { ADMINS, STICKER_PAGO_ID, NUMERO_NOTIFICACION } from "./config.js";
-import { jidDecode } from "@whiskeysockets/baileys";
 import { supabase } from "./supabase.js";
 
-// 🧠 Normalizar JID
-function decodeJid(jid = "") {
-  const r = jidDecode(jid);
-  return r?.user ? r.user + "@s.whatsapp.net" : jid;
+console.log("🔥 PAGOS ALINEADO");
+
+// 🔥 limpiar número
+const limpiarNumero = (jid = "") => jid.split("@")[0];
+
+// 🔥 obtener usuario desde JID (MISMA LÓGICA QUE RESERVAS)
+async function obtenerUsuario(jidUsuario) {
+
+  let telefono = null;
+  let lid = null;
+
+  if (jidUsuario.includes("@s.whatsapp.net")) {
+    telefono = jidUsuario.replace("@s.whatsapp.net", "").replace(/^57/, "");
+  }
+
+  if (jidUsuario.includes("@lid")) {
+    lid = jidUsuario;
+  }
+
+  let telefonoFinal = telefono;
+  let lidFinal = lid;
+
+  // buscar lid
+  if (telefonoFinal) {
+    const { data } = await supabase
+      .from("usuarios")
+      .select("lid")
+      .eq("telefono", telefonoFinal)
+      .limit(1);
+
+    if (data?.length) lidFinal = data[0].lid;
+  }
+
+  // buscar telefono
+  if (!telefonoFinal && lidFinal) {
+    const { data } = await supabase
+      .from("usuarios")
+      .select("telefono")
+      .eq("lid", lidFinal)
+      .limit(1);
+
+    if (data?.length) telefonoFinal = data[0].telefono;
+  }
+
+  return { telefonoFinal, lidFinal };
 }
 
-export async function procesarPago(sock, msg, configGrupo) {
+export async function procesarPago(sock, msg, configGrupo, jidUsuario) {
+
   console.log("\n💰 procesarPago ACTIVADO");
 
   const sticker = msg.message?.stickerMessage;
@@ -20,55 +61,59 @@ export async function procesarPago(sock, msg, configGrupo) {
 
   console.log("🧩 Sticker ID:", stickerID);
 
-  // 👤 QUIÉN ENVÍA EL STICKER
-  const remitente = decodeJid(
-    msg.key.participant || msg.key.remoteJid
-  );
+  // 🔥 VALIDAR ADMIN POR NÚMERO (FIX REAL)
+  const numeroUsuario = limpiarNumero(jidUsuario);
 
-  console.log("👤 Remitente:", remitente);
+  const esAdmin = ADMINS.includes(numeroUsuario);
 
-  // 🔒 SOLO ADMINS
-  if (!ADMINS.includes(remitente)) {
-    console.log("⛔ No es admin, ignorado");
+  if (!esAdmin) {
+    console.log("⛔ No es admin");
     return;
   }
 
-  // 🎯 VALIDAR STICKER
+  console.log("✅ ES ADMIN");
+
+  // 🔒 validar sticker
   if (stickerID !== STICKER_PAGO_ID) {
     console.log("⛔ Sticker no válido");
     return;
   }
 
-  // 🧠 CLIENTE DESDE EL STICKER RESPONDIDO
-  const clienteRaw =
+  // 🔥 CLIENTE
+  const clienteJid =
     sticker.contextInfo?.participant ||
     sticker.contextInfo?.remoteJid ||
-    "";
+    null;
 
-  const cliente = decodeJid(clienteRaw);
-  const contacto = cliente
-    .replace("@s.whatsapp.net", "")
-    .replace(/^57/, "");
-
-  console.log("📞 Cliente detectado:", contacto);
-
-  if (!contacto) {
-    console.log("⚠️ No se pudo detectar cliente");
+  if (!clienteJid) {
+    console.log("⚠️ No se pudo obtener cliente");
     return;
   }
 
-  // 🔍 BUSCAR RESERVAS
+  console.log("👤 Cliente JID:", clienteJid);
+
+  const { telefonoFinal, lidFinal } = await obtenerUsuario(clienteJid);
+
+  if (!telefonoFinal) {
+    console.log("⚠️ No se pudo identificar teléfono del cliente");
+    return;
+  }
+
+  console.log("📞 Teléfono final:", telefonoFinal);
+  console.log("🆔 LID final:", lidFinal);
+
+  // 🔎 buscar reservas
   const { data: reservas, error } = await supabase
     .from(configGrupo.tabla)
     .select("numero, comprador")
-    .eq("contacto", contacto);
+    .eq("contacto", telefonoFinal);
 
   if (error) {
     console.error("❌ Error buscando reservas:", error.message);
     return;
   }
 
-  if (!reservas || !reservas.length) {
+  if (!reservas?.length) {
     console.log("⚠️ Cliente sin reservas");
     return;
   }
@@ -78,11 +123,11 @@ export async function procesarPago(sock, msg, configGrupo) {
 
   console.log("🔢 Números encontrados:", numeros);
 
-  // ✅ MARCAR COMO PAGADO
+  // ✅ marcar pagado
   const { error: errorUpdate } = await supabase
     .from(configGrupo.tabla)
     .update({ estado: "pagado" })
-    .eq("contacto", contacto);
+    .eq("contacto", telefonoFinal);
 
   if (errorUpdate) {
     console.error("❌ Error marcando pagado:", errorUpdate.message);
@@ -90,17 +135,22 @@ export async function procesarPago(sock, msg, configGrupo) {
   }
 
   console.log("✅ Pago marcado correctamente");
-
-  // 📩 MENSAJE PRIVADO (SOLO A TI)
-  const mensaje = `
+// 📤 notificación
+const mensaje = `
 ✅ *PAGO CONFIRMADO*
 
 👤 Cliente: *${comprador}*
 📍 Grupo: ${configGrupo.nombre}
 🔢 Números: *( ${numeros.join(" - ")} )*
-  `;
+`;
 
+if (Array.isArray(NUMERO_NOTIFICACION)) {
+  for (const numero of NUMERO_NOTIFICACION) {
+    await sock.sendMessage(numero, { text: mensaje });
+  }
+} else {
   await sock.sendMessage(NUMERO_NOTIFICACION, { text: mensaje });
+}
 
-  console.log("📤 Confirmación enviada a tu privado");
+console.log("📤 Confirmación enviada a notificaciones");
 }
