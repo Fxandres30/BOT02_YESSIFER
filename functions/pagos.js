@@ -71,7 +71,7 @@ export async function procesarPago(sock, msg, configGrupo, jidUsuario) {
     return;
   }
 
-  console.log("✅ ES ADMIN");
+  console.log("✅ ES ADMINISTRADOR");
 
 // 🔒 validar sticker
 if (!STICKER_PAGO_ID.includes(stickerID)) {
