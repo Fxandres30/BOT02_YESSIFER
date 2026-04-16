@@ -5,9 +5,7 @@ import { textoPermitidoParaReserva } from "./reglasReserva.js";
 import {
   mensajesTodosLibres,
   mensajesTodosOcupados,
-  mensajeAleatorio,
-  encabezadosReservados,
-  encabezadosOcupados
+  mensajeAleatorio
 } from "./mensajes.js";
 
 import { delayEscritura } from "./typing.js";
@@ -170,32 +168,33 @@ export async function procesarReserva(sock, msg, texto, configGrupo, jidUsuario)
 
   if (ocupadosPorOtros.length === 0) {
 
-    await responder(
-      sock,
-      grupoId,
-      mensajeAleatorio(mensajesTodosLibres),
-      msg
-    );
+  await responder(
+    sock,
+    grupoId,
+    mensajeAleatorio(mensajesTodosLibres),
+    msg
+  );
 
-  } else {
+} else {
 
-    let respuesta = "";
+  let respuesta = "";
 
-    if (reservados.length > 0) {
-      const plantilla = mensajeAleatorio(encabezadosReservados);
-      const texto = plantilla.replace("{numeros}", reservados.join(" - "));
-      respuesta += `${texto}\n\n`;
-    }
-
-    if (ocupadosPorOtros.length > 0) {
-      const plantilla = mensajeAleatorio(encabezadosOcupados);
-      const texto = plantilla.replace("{numeros}", ocupadosPorOtros.join(" - "));
-      respuesta += texto;
-    }
-
-    await responder(sock, grupoId, respuesta, msg);
+  // 🔥 SI RESERVÓ ALGUNOS
+  if (reservados.length > 0) {
+    const plantilla = mensajeAleatorio(mensajesTodosLibres);
+    const texto = `${plantilla}\n🔢 ${reservados.join(" - ")}`;
+    respuesta += `${texto}\n\n`;
   }
 
+  // 🔥 SI ALGUNOS ESTÁN OCUPADOS
+  if (ocupadosPorOtros.length > 0) {
+    const plantilla = mensajeAleatorio(mensajesTodosOcupados);
+    const texto = `${plantilla}\n🔢 ${ocupadosPorOtros.join(" - ")}`;
+    respuesta += texto;
+  }
+
+  await responder(sock, grupoId, respuesta, msg);
+}
   if (reservados.length > 0) {
 
     await sock.sendMessage(NUMERO_ADMIN, {
