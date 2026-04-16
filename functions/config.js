@@ -21,7 +21,8 @@ export const ADMINS = [
 export const STICKER_PAGO_ID =  [
   "T9gVHBVeWDiTlhsDL0tr3Xjbu0bUzAlP1VjSHjf5rKg=",
   "Ztbr/xggfN4hQot5ZA1Fl24SwoLW7Woz74EACZMoUSQ=",
-  "nnq3+j4zrFsOybkKlyU1oVL/UAN0CRiLJ7K4AG9Uftk="
+  "nnq3+j4zrFsOybkKlyU1oVL/UAN0CRiLJ7K4AG9Uftk=",
+  "9bYgD2F9E4G8Dkp3y0pCFQpBCIOfAtc3IG/MyhP8SSM="
   ];
 
 export const NUMERO_NOTIFICACION = [
