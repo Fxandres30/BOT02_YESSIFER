@@ -179,22 +179,21 @@ export async function procesarReserva(sock, msg, texto, configGrupo, jidUsuario)
 
   let respuesta = "";
 
-  // 🔥 SI RESERVÓ ALGUNOS
-  if (reservados.length > 0) {
-    const plantilla = mensajeAleatorio(mensajesTodosLibres);
-    const texto = `${plantilla}\n🔢 ${reservados.join(" - ")}`;
-    respuesta += `${texto}\n\n`;
+    if (reservados.length > 0) {
+      const plantilla = mensajeAleatorio(encabezadosReservados);
+      const texto = plantilla.replace("{numeros}", reservados.join(" - "));
+      respuesta += `${texto}\n\n`;
+    }
+
+    if (ocupadosPorOtros.length > 0) {
+      const plantilla = mensajeAleatorio(encabezadosOcupados);
+      const texto = plantilla.replace("{numeros}", ocupadosPorOtros.join(" - "));
+      respuesta += texto;
+    }
+
+    await responder(sock, grupoId, respuesta, msg);
   }
 
-  // 🔥 SI ALGUNOS ESTÁN OCUPADOS
-  if (ocupadosPorOtros.length > 0) {
-    const plantilla = mensajeAleatorio(mensajesTodosOcupados);
-    const texto = `${plantilla}\n🔢 ${ocupadosPorOtros.join(" - ")}`;
-    respuesta += texto;
-  }
-
-  await responder(sock, grupoId, respuesta, msg);
-}
   if (reservados.length > 0) {
 
     await sock.sendMessage(NUMERO_ADMIN, {
