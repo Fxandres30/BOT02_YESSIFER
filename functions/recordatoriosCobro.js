@@ -11,64 +11,21 @@ const mapaTiempos = {
 };
 
 // 🎲 MENSAJES ALEATORIOS (SE MANTIENE 🔥)
+// 🎲 MENSAJE ÚNICO (REEMPLAZA TODOS)
 function mensajeCobroAleatorio(evento) {
 
   const mensajes = [
 
-`👀 *Familia recuerden*
+`📢 FAMILIA Y&V
 
-Que estamos jugando *${evento.nombre_evento}* ✍️👀
+PAGOS HABILITADOS
 
-*Vayan cancelando sus numeritos para que no sean liberados ☘️🎯*
+RECUERDA:
+TU PARTICIPACION ES VALIDA SOLO DESPUES DEL PAGO
 
-💰 Valor: ${evento.valor}
+NEQUI / DAVIPLATA
+3246789010`
 
-🏦 *Nequi - Daviplata - Bre-B*
-➡️ *3014123951*`,
-
-`🔥 *Atención grupo*
-
-Sorteo activo *${evento.nombre_evento}* 🎯
-
-Recuerden ir cancelando para evitar liberaciones ⚠️
-
-💰 Valor: ${evento.valor}
-
-🏦 *Nequi - Daviplata - Bre-B*
-➡️ *3014123951*`,
-
-`⏰ *Recordatorio familia*
-
-Estamos jugando *${evento.nombre_evento}* ✍️
-
-*No dejen sus números sin pagar 👀*
-
-💰 Valor: ${evento.valor}
-
-🏦 *Nequi - Daviplata - Bre-B*
-➡️ *3014123951*`,
-
-`🚨 *Ojo grupo*
-
-Números sin cancelar en *${evento.nombre_evento}* serán liberados ⚠️
-
-Aseguren sus jugadas ☘️
-
-💰 Valor: ${evento.valor}
-
-🏦 *Nequi - Daviplata - Bre-B*
-➡️ *3014123951*`,
-
-`🎯 *Vamos con todo*
-
-Recuerden pagar sus números de *${evento.nombre_evento}* ✍️
-
-No se queden por fuera ☘️🎯
-
-💰 Valor: ${evento.valor}
-
-🏦 *Nequi - Daviplata - Bre-B*
-➡️ *3014123951*`
   ];
 
   return mensajes[Math.floor(Math.random() * mensajes.length)];
