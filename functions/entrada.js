@@ -2,6 +2,18 @@ import { getContentType } from "@whiskeysockets/baileys";
 import { procesarReserva } from "./reservas.js";
 import { procesarPago } from "./pagos.js";
 
+import {
+  esConsultaNumeros,
+  respuestaAleatoriaNumeros,
+  respuestaSinNumeros,
+  respuestaMixta
+} from "./consultasNumeros.js";
+
+import { obtenerNumerosUsuario } from "./consultarNumerosBD.js";
+
+// 🔥 IMPORTAR DETECTOR DE EVENTOS
+import { detectarEvento } from "./detectarEvento.js";
+
 // 🔥 escribir con delay
 async function enviarConEscribiendo(sock, jid, texto, quoted) {
   try {
@@ -30,13 +42,11 @@ export async function procesarEntrada(sock, msg, configGrupo, jidUsuario) {
   const tipo = getContentType(msg.message);
   console.log("📦 Tipo de mensaje:", tipo);
 
-  // 🔥 USUARIO UNIFICADO
   console.log("📌 JID USUARIO:", jidUsuario);
 
   // 🧩 STICKER → PAGO
   if (tipo === "stickerMessage") {
     console.log("🧩 STICKER → pagos");
-
     await procesarPago(sock, msg, configGrupo, jidUsuario);
     return;
   }
@@ -75,8 +85,112 @@ export async function procesarEntrada(sock, msg, configGrupo, jidUsuario) {
   if (!texto) return;
 
   texto = texto.toLowerCase().trim();
-
   console.log("🗣️ TEXTO FINAL:", texto);
+
+  // 🔥 EVENTOS
+  await detectarEvento(sock, msg.key.remoteJid, texto);
+
+  // 🔥 CONSULTA DE NÚMEROS
+  if (esConsultaNumeros(texto)) {
+
+    try {
+
+      const { reservados, pagados } = await obtenerNumerosUsuario(
+        jidUsuario,
+        configGrupo.tabla
+      );
+
+      // 🔥 LOGS PRO
+      console.log("📊 RESULTADO DB:");
+      console.log("📌 Reservados:", reservados);
+      console.log("💰 Pagados:", pagados);
+
+      // 🔥 MIXTO
+      if (reservados.length && pagados.length) {
+
+        console.log("🧠 Caso: MIXTO");
+
+        const respuesta = respuestaMixta(reservados, pagados, texto);
+
+        await enviarConEscribiendo(
+          sock,
+          msg.key.remoteJid,
+          respuesta,
+          msg
+        );
+
+        return;
+      }
+
+      // 💰 SOLO PAGADOS
+      if (pagados.length) {
+
+        console.log("🧠 Caso: SOLO PAGADOS");
+
+        const respuesta = respuestaAleatoriaNumeros(
+          pagados,
+          texto,
+          "pagado"
+        );
+
+        await enviarConEscribiendo(
+          sock,
+          msg.key.remoteJid,
+          respuesta,
+          msg
+        );
+
+        return;
+      }
+
+      // 📌 SOLO RESERVADOS
+      if (reservados.length) {
+
+        console.log("🧠 Caso: SOLO RESERVADOS");
+
+        const respuesta = respuestaAleatoriaNumeros(
+          reservados,
+          texto,
+          "reservado"
+        );
+
+        await enviarConEscribiendo(
+          sock,
+          msg.key.remoteJid,
+          respuesta,
+          msg
+        );
+
+        return;
+      }
+
+      // ❌ NINGUNO
+      console.log("🧠 Caso: SIN NÚMEROS");
+
+      const respuesta = respuestaSinNumeros(texto);
+
+      await enviarConEscribiendo(
+        sock,
+        msg.key.remoteJid,
+        respuesta,
+        msg
+      );
+
+      return;
+
+    } catch (err) {
+      console.log("❌ Error consultando números:", err);
+
+      await enviarConEscribiendo(
+        sock,
+        msg.key.remoteJid,
+        "❌ Error consultando tus números, intenta de nuevo.",
+        msg
+      );
+    }
+
+    return;
+  }
 
   // 👉 RESERVAS
   await procesarReserva(

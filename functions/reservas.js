@@ -5,7 +5,9 @@ import { textoPermitidoParaReserva } from "./reglasReserva.js";
 import {
   mensajesTodosLibres,
   mensajesTodosOcupados,
-  mensajeAleatorio
+  mensajeAleatorio,
+  encabezadosReservados,
+  encabezadosOcupados
 } from "./mensajes.js";
 
 import { delayEscritura } from "./typing.js";
@@ -14,10 +16,35 @@ import { delayEscritura } from "./typing.js";
 function extraerNumeros(texto) {
   return texto
     .toLowerCase()
-    .replace(/[o]/g, "0")
+
+    // 🔹 separar letras pegadas a números (el16 → el 16)
+    .replace(/([a-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([a-z])/g, "$1 $2")
+
+    // 🔹 separar conectores tipo "23y45"
+    .replace(/(\d)(y)(\d)/g, "$1 $3")
+
+    // 🔹 separar símbolos
     .replace(/[_\-.,;/|\\()]+/g, " ")
-    .replace(/\b([0-9])\b/g, "0$1")
-    .match(/\b\d{2}\b/g) || [];
+
+    // 🔹 dividir palabras
+    .split(/\s+/)
+
+    // 🔥 SOLO tokens válidos de 2 caracteres
+    .map(token => {
+      if (/^[0-9o]{2}$/.test(token)) {
+        return token.replace(/o/g, "0");
+      }
+      return token;
+    })
+
+    .join(" ")
+
+    // 🔹 extraer solo números de 2 cifras
+    .match(/\b\d{2}\b/g)
+
+    // 🔹 limitar rango
+    ?.filter(n => Number(n) <= 99) || [];
 }
 
 /* responder */
@@ -168,33 +195,32 @@ export async function procesarReserva(sock, msg, texto, configGrupo, jidUsuario)
 
   if (ocupadosPorOtros.length === 0) {
 
-  await responder(
-    sock,
-    grupoId,
-    mensajeAleatorio(mensajesTodosLibres),
-    msg
-  );
+    await responder(
+      sock,
+      grupoId,
+      mensajeAleatorio(mensajesTodosLibres),
+      msg
+    );
 
-} else {
+  } else {
 
-  let respuesta = "";
+    let respuesta = "";
 
-  // 🔥 SI RESERVÓ ALGUNOS
-  if (reservados.length > 0) {
-    const plantilla = mensajeAleatorio(mensajesTodosLibres);
-    const texto = `${plantilla}\n🔢 ${reservados.join(" - ")}`;
-    respuesta += `${texto}\n\n`;
+    if (reservados.length > 0) {
+      const plantilla = mensajeAleatorio(encabezadosReservados);
+      const texto = plantilla.replace("{numeros}", reservados.join(" - "));
+      respuesta += `${texto}\n\n`;
+    }
+
+    if (ocupadosPorOtros.length > 0) {
+      const plantilla = mensajeAleatorio(encabezadosOcupados);
+      const texto = plantilla.replace("{numeros}", ocupadosPorOtros.join(" - "));
+      respuesta += texto;
+    }
+
+    await responder(sock, grupoId, respuesta, msg);
   }
 
-  // 🔥 SI ALGUNOS ESTÁN OCUPADOS
-  if (ocupadosPorOtros.length > 0) {
-    const plantilla = mensajeAleatorio(mensajesTodosOcupados);
-    const texto = `${plantilla}\n🔢 ${ocupadosPorOtros.join(" - ")}`;
-    respuesta += texto;
-  }
-
-  await responder(sock, grupoId, respuesta, msg);
-}
   if (reservados.length > 0) {
 
     await sock.sendMessage(NUMERO_ADMIN, {
